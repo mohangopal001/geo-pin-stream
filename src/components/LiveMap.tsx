@@ -266,6 +266,37 @@ const LiveMap: React.FC = () => {
     toast({ title: "Webhook URL saved" });
   };
 
+  const handleFetchOnce = async () => {
+    if (!webhookUrl) {
+      toast({ title: "Enter webhook URL" });
+      return;
+    }
+    try {
+      const res = await fetch(webhookUrl, { method: "GET" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const root = (data as any)?.Output ?? data;
+      const coords = extractCoordinates(root);
+      if (coords) {
+        const { tracker, asset } = extractDetails(root);
+        const ev: ParsedEvent = {
+          coords,
+          tracker,
+          asset,
+          raw: root,
+          receivedAt: Date.now(),
+        };
+        setEvents((prev) => [ev, ...prev].slice(0, 50));
+        addMarker(ev);
+        toast({ title: "Fetched and plotted latest event" });
+      } else {
+        toast({ title: "No coordinates found", description: "Response did not contain latitude/longitude" });
+      }
+    } catch (e: any) {
+      toast({ title: "Fetch failed", description: e?.message || String(e) });
+    }
+  };
+
   const [sample, setSample] = useState<string>("");
   const handlePlotSample = () => {
     try {
@@ -337,6 +368,9 @@ const LiveMap: React.FC = () => {
                 </Button>
                 <Button variant="outline" onClick={handleSaveWebhook}>
                   Save
+                </Button>
+                <Button variant="outline" onClick={handleFetchOnce}>
+                  Fetch once
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
