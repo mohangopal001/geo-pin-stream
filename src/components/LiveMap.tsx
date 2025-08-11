@@ -140,40 +140,9 @@ const LiveMap: React.FC = () => {
       } as any);
     });
 
-    // Simple auto-rotation when idle
-    let userInteracting = false;
-    const secondsPerRevolution = 240;
-    const maxSpinZoom = 5;
-    const slowSpinZoom = 3;
-
-    function spinGlobe() {
-      if (!mapRef.current) return;
-      const m = mapRef.current;
-      const zoom = m.getZoom();
-      if (!userInteracting && zoom < maxSpinZoom) {
-        let distancePerSecond = 360 / secondsPerRevolution;
-        if (zoom > slowSpinZoom) {
-          const zoomDif = (maxSpinZoom - zoom) / (maxSpinZoom - slowSpinZoom);
-          distancePerSecond *= zoomDif;
-        }
-        const center = m.getCenter();
-        center.lng -= distancePerSecond;
-        m.easeTo({ center, duration: 1000, easing: (n) => n });
-      }
-    }
-
-    map.on("mousedown", () => (userInteracting = true));
-    map.on("dragstart", () => (userInteracting = true));
-    map.on("mouseup", () => {
-      userInteracting = false;
-      spinGlobe();
-    });
-    map.on("touchend", () => {
-      userInteracting = false;
-      spinGlobe();
-    });
-    map.on("moveend", spinGlobe);
-    spinGlobe();
+    // Auto-rotation disabled to keep map static
+    map.dragRotate.disable();
+    map.touchZoomRotate.disableRotation();
 
     return () => {
       markersRef.current.forEach((mk) => mk.remove());
