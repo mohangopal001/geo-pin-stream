@@ -154,7 +154,7 @@ const Dashboard: React.FC = () => {
                       <TableCell>{r.link?.status ?? "—"}</TableCell>
                       <TableCell>
                         <Button asChild variant="link" className="px-0"> 
-                          <Link to="/">Edit</Link>
+                          <Link to={`/?tab=link&assetId=${encodeURIComponent(r.asset.id)}`}>Edit</Link>
                         </Button>
                       </TableCell>
                     </TableRow>

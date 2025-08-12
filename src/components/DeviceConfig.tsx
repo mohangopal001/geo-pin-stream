@@ -46,6 +46,8 @@ type AssetTrackerLink = {
   status: LinkStatus;
 };
 
+type TabKey = "trackers" | "assets" | "link";
+
 export default function DeviceConfig() {
   const { toast } = useToast();
 
@@ -100,6 +102,20 @@ const [aStatus, setAStatus] = React.useState<AssetStatus | "">("");
 const [selectedAssetId, setSelectedAssetId] = React.useState("");
 const [selectedTrackerId, setSelectedTrackerId] = React.useState("");
 const [linkStatus, setLinkStatus] = React.useState<LinkStatus | "">("");
+
+// Tabs state and URL params preselection
+const [tab, setTab] = React.useState<TabKey>("trackers");
+React.useEffect(() => {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const pTab = params.get("tab") as TabKey | null;
+    const assetIdParam = params.get("assetId");
+    const trackerIdParam = params.get("trackerId");
+    if (pTab === "trackers" || pTab === "assets" || pTab === "link") setTab(pTab);
+    if (assetIdParam) setSelectedAssetId(assetIdParam);
+    if (trackerIdParam) setSelectedTrackerId(trackerIdParam);
+  } catch {}
+}, []);
 
   const trackerStatusOptions: TrackerStatus[] = [
     "Active",
@@ -212,7 +228,7 @@ const [linkStatus, setLinkStatus] = React.useState<LinkStatus | "">("");
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="trackers" className="w-full">
+      <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)} className="w-full">
         <TabsList>
           <TabsTrigger value="trackers">Tracker Device Master</TabsTrigger>
           <TabsTrigger value="assets">Assets Master</TabsTrigger>
@@ -459,9 +475,39 @@ const [linkStatus, setLinkStatus] = React.useState<LinkStatus | "">("");
                       const a = assets.find((x) => x.id === l.assetId);
                       const t = trackers.find((x) => x.id === l.trackerId);
                       return (
-                        <div key={`${l.assetId}-${l.trackerId}-${idx}`} className="rounded-md border p-3 text-sm">
-                          <div className="font-medium">{a?.name ?? l.assetId} ↔ {t?.name ?? l.trackerId}</div>
-                          <div className="text-muted-foreground">Status: {l.status}</div>
+                        <div key={`${l.assetId}-${l.trackerId}-${idx}`} className="rounded-md border p-3 text-sm flex items-center justify-between">
+                          <div>
+                            <div className="font-medium">{a?.name ?? l.assetId} ↔ {t?.name ?? l.trackerId}</div>
+                            <div className="text-muted-foreground">Status: {l.status}</div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setTab("link");
+                                setSelectedAssetId(l.assetId);
+                                setSelectedTrackerId(l.trackerId);
+                                setLinkStatus(l.status);
+                                window.scrollTo({ top: 0, behavior: "smooth" });
+                              }}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => {
+                                setLinks((prev) => prev.filter((x) => x.assetId !== l.assetId));
+                                toast({
+                                  title: "Tracking removed",
+                                  description: `Removed all links for ${a?.name ?? l.assetId}.`,
+                                });
+                              }}
+                            >
+                              Remove tracking
+                            </Button>
+                          </div>
                         </div>
                       );
                     })}
