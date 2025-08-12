@@ -92,7 +92,7 @@ function safeStringify(data: unknown): string {
 const MAP_KEY_STORAGE = "mapbox.public.token";
 const WEBHOOK_URL_STORAGE = "webhook.url.input";
 const TRACKER_POS_STORAGE = "dc.trackerPositions";
-
+const TRACKING_LOGS_STORAGE = "dc.trackingLogs";
 function trackerKeyFromUnknown(tr: any): string | null {
   try {
     if (!tr || typeof tr !== "object") return null;
@@ -175,11 +175,20 @@ function saveTrackerPosition(tracker: unknown, coords: Coordinates) {
     if (!key) return;
     const map: Record<string, { lat: number; lng: number; receivedAt: number }> =
       JSON.parse(localStorage.getItem(TRACKER_POS_STORAGE) || "{}");
-    map[key] = { lat: coords.lat, lng: coords.lng, receivedAt: Date.now() };
+    const ts = Date.now();
+    map[key] = { lat: coords.lat, lng: coords.lng, receivedAt: ts };
     localStorage.setItem(TRACKER_POS_STORAGE, JSON.stringify(map));
+
+    // Append to tracking logs for this tracker
+    const logsMap: Record<string, Array<{ lat: number; lng: number; receivedAt: number }>> =
+      JSON.parse(localStorage.getItem(TRACKING_LOGS_STORAGE) || "{}");
+    const list = logsMap[key] ?? [];
+    list.push({ lat: coords.lat, lng: coords.lng, receivedAt: ts });
+    // Keep only the last 500 entries per tracker to avoid unbounded growth
+    logsMap[key] = list.slice(-500);
+    localStorage.setItem(TRACKING_LOGS_STORAGE, JSON.stringify(logsMap));
   } catch {}
 }
-
 function addMarker(ev: ParsedEvent) {
   if (!mapRef.current) return;
   const m = new mapboxgl.Marker({ color: "#2563eb" }) // using default accent-blue from mapbox marker, UI colors come from map style

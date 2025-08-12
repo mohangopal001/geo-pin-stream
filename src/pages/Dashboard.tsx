@@ -6,13 +6,13 @@ import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, Tabl
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { Button } from "@/components/ui/button";
 import AssetMap, { AssetMarker } from "@/components/AssetMap";
-
+import TrackingLogDialog from "@/components/TrackingLogDialog";
 // LocalStorage keys aligned with DeviceConfig/LiveMap
 const LS_ASSETS = "dc.assets";
 const LS_TRACKERS = "dc.trackers";
 const LS_LINKS = "dc.links";
 const LS_TRACKER_POS = "dc.trackerPositions";
-
+const LS_TRACKING_LOGS = "dc.trackingLogs";
 // Types mirrored from DeviceConfig (kept local to avoid large refactor)
 type TrackerStatus = "Active" | "Inactive" | "Missing" | "Maintenance";
 type AssetType = "Movable" | "Stationery";
@@ -41,7 +41,9 @@ const Dashboard: React.FC = () => {
 
   const [rows, setRows] = React.useState<Row[]>([]);
   const [markers, setMarkers] = React.useState<AssetMarker[]>([]);
-
+  const [logOpen, setLogOpen] = React.useState(false);
+  const [logRows, setLogRows] = React.useState<TrackerPos[]>([]);
+  const [logContext, setLogContext] = React.useState<{ assetName: string; trackerName: string } | null>(null);
   React.useEffect(() => {
     const assets: Asset[] = JSON.parse(localStorage.getItem(LS_ASSETS) || "[]");
     const trackers: Tracker[] = JSON.parse(localStorage.getItem(LS_TRACKERS) || "[]");
@@ -77,6 +79,23 @@ const Dashboard: React.FC = () => {
       }));
     setMarkers(ms);
   }, [pageRows]);
+
+  const handleViewLog = (r: Row) => {
+    try {
+      const logsMap: Record<string, TrackerPos[]> = JSON.parse(localStorage.getItem(LS_TRACKING_LOGS) || "{}");
+      const key1 = r.tracker?.id ?? "";
+      const key2 = r.tracker?.name ?? "";
+      const pts = (key1 && logsMap[key1]) || (key2 && logsMap[key2]) || [];
+      const sorted = [...pts].sort((a, b) => b.receivedAt - a.receivedAt);
+      setLogRows(sorted);
+      setLogContext({ assetName: r.asset.name, trackerName: r.tracker?.name ?? "" });
+      setLogOpen(true);
+    } catch {
+      setLogRows([]);
+      setLogContext({ assetName: r.asset.name, trackerName: r.tracker?.name ?? "" });
+      setLogOpen(true);
+    }
+  };
 
   return (
     <div className="min-h-screen">
@@ -126,13 +145,14 @@ const Dashboard: React.FC = () => {
                     <TableHead>GPS Tracker Status</TableHead>
                     <TableHead>GPS Tracker Battery</TableHead>
                     <TableHead>Tracking Status</TableHead>
+                    <TableHead>View Tracking Log</TableHead>
                     <TableHead>Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {pageRows.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center text-muted-foreground">
+                      <TableCell colSpan={9} className="text-center text-muted-foreground">
                         No assets found. Add assets, trackers, and link them on the home page.
                       </TableCell>
                     </TableRow>
@@ -152,6 +172,11 @@ const Dashboard: React.FC = () => {
                       <TableCell>{r.tracker?.status ?? "—"}</TableCell>
                       <TableCell>{r.tracker ? `${r.tracker.batteryLevel}%` : "—"}</TableCell>
                       <TableCell>{r.link?.status ?? "—"}</TableCell>
+                      <TableCell>
+                        <Button variant="link" className="px-0" onClick={() => handleViewLog(r)}>
+                          View
+                        </Button>
+                      </TableCell>
                       <TableCell>
                         <Button asChild variant="link" className="px-0"> 
                           <Link to={`/?tab=link&assetId=${encodeURIComponent(r.asset.id)}`}>Edit</Link>
@@ -196,9 +221,17 @@ const Dashboard: React.FC = () => {
             <AssetMap markers={markers} />
           </CardContent>
         </Card>
-      </main>
-    </div>
-  );
+          {/* Tracking Log Dialog */}
+          <TrackingLogDialog
+            open={logOpen}
+            onOpenChange={setLogOpen}
+            assetName={logContext?.assetName ?? ""}
+            trackerName={logContext?.trackerName ?? ""}
+            logs={logRows}
+          />
+        </main>
+      </div>
+    );
 };
 
 export default Dashboard;
