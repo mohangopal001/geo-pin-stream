@@ -1,6 +1,6 @@
 import { Helmet } from "react-helmet-async";
 import LiveMap from "@/components/LiveMap";
-
+import DeviceConfig from "@/components/DeviceConfig";
 const Index = () => {
   const title = "Live Tracker Map – Webhook-powered asset locations";
   const description =
@@ -40,6 +40,7 @@ const Index = () => {
       </header>
 
       <main className="container mx-auto pb-12">
+        <DeviceConfig />
         <LiveMap />
       </main>
     </div>
