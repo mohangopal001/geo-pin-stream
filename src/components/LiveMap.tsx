@@ -189,7 +189,7 @@ const LiveMap: React.FC = () => {
 
     const poll = async () => {
       try {
-        const res = await fetch(webhookUrl, { method: "GET" });
+        const res = await fetch(webhookUrl, { method: "POST" });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         const root = data?.Output ?? data; // Support "Output" wrapper
@@ -241,7 +241,7 @@ const LiveMap: React.FC = () => {
       return;
     }
     try {
-      const res = await fetch(webhookUrl, { method: "GET" });
+      const res = await fetch(webhookUrl, { method: "POST" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       const root = (data as any)?.Output ?? data;
