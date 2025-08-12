@@ -49,29 +49,57 @@ type AssetTrackerLink = {
 export default function DeviceConfig() {
   const { toast } = useToast();
 
-  const [trackers, setTrackers] = React.useState<Tracker[]>([]);
-  const [assets, setAssets] = React.useState<Asset[]>([]);
-  const [links, setLinks] = React.useState<AssetTrackerLink[]>([]);
+const [trackers, setTrackers] = React.useState<Tracker[]>([]);
+const [assets, setAssets] = React.useState<Asset[]>([]);
+const [links, setLinks] = React.useState<AssetTrackerLink[]>([]);
 
-  // Forms state - Tracker
-  const [tId, setTId] = React.useState("");
-  const [tName, setTName] = React.useState("");
-  const [tModel, setTModel] = React.useState("");
-  const [tBattery, setTBattery] = React.useState<number | "">("");
-  const [tStatus, setTStatus] = React.useState<TrackerStatus | "">("");
+// persist to localStorage so Dashboard can read
+const LS_TRACKERS = "dc.trackers";
+const LS_ASSETS = "dc.assets";
+const LS_LINKS = "dc.links";
 
-  // Forms state - Asset
-  const [aId, setAId] = React.useState("");
-  const [aName, setAName] = React.useState("");
-  const [aDesc, setADesc] = React.useState("");
-  const [aType, setAType] = React.useState<AssetType | "">("");
-  const [aBase, setABase] = React.useState("");
-  const [aStatus, setAStatus] = React.useState<AssetStatus | "">("");
+React.useEffect(() => {
+  try {
+    const t = JSON.parse(localStorage.getItem(LS_TRACKERS) || "[]");
+    const a = JSON.parse(localStorage.getItem(LS_ASSETS) || "[]");
+    const l = JSON.parse(localStorage.getItem(LS_LINKS) || "[]");
+    if (Array.isArray(t)) setTrackers(t);
+    if (Array.isArray(a)) setAssets(a);
+    if (Array.isArray(l)) setLinks(l);
+  } catch {}
+}, []);
 
-  // Forms state - Link
-  const [selectedAssetId, setSelectedAssetId] = React.useState("");
-  const [selectedTrackerId, setSelectedTrackerId] = React.useState("");
-  const [linkStatus, setLinkStatus] = React.useState<LinkStatus | "">("");
+React.useEffect(() => {
+  localStorage.setItem(LS_TRACKERS, JSON.stringify(trackers));
+}, [trackers]);
+
+React.useEffect(() => {
+  localStorage.setItem(LS_ASSETS, JSON.stringify(assets));
+}, [assets]);
+
+React.useEffect(() => {
+  localStorage.setItem(LS_LINKS, JSON.stringify(links));
+}, [links]);
+
+// Forms state - Tracker
+const [tId, setTId] = React.useState("");
+const [tName, setTName] = React.useState("");
+const [tModel, setTModel] = React.useState("");
+const [tBattery, setTBattery] = React.useState<number | "">("");
+const [tStatus, setTStatus] = React.useState<TrackerStatus | "">("");
+
+// Forms state - Asset
+const [aId, setAId] = React.useState("");
+const [aName, setAName] = React.useState("");
+const [aDesc, setADesc] = React.useState("");
+const [aType, setAType] = React.useState<AssetType | "">("");
+const [aBase, setABase] = React.useState("");
+const [aStatus, setAStatus] = React.useState<AssetStatus | "">("");
+
+// Forms state - Link
+const [selectedAssetId, setSelectedAssetId] = React.useState("");
+const [selectedTrackerId, setSelectedTrackerId] = React.useState("");
+const [linkStatus, setLinkStatus] = React.useState<LinkStatus | "">("");
 
   const trackerStatusOptions: TrackerStatus[] = [
     "Active",

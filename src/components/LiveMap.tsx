@@ -91,6 +91,23 @@ function safeStringify(data: unknown): string {
 
 const MAP_KEY_STORAGE = "mapbox.public.token";
 const WEBHOOK_URL_STORAGE = "webhook.url.input";
+const TRACKER_POS_STORAGE = "dc.trackerPositions";
+
+function trackerKeyFromUnknown(tr: any): string | null {
+  try {
+    if (!tr || typeof tr !== "object") return null;
+    const entries = Object.entries(tr as Record<string, any>);
+    const lower = new Map(entries.map(([k, v]) => [k.toLowerCase(), v]));
+    const id = lower.get("id") ?? lower.get("trackerid") ?? lower.get("deviceid");
+    const name = lower.get("name") ?? lower.get("trackername") ?? lower.get("devicename");
+    if (typeof id === "string" && id.trim()) return id.trim();
+    if (typeof name === "string" && name.trim()) return name.trim();
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 
 const LiveMap: React.FC = () => {
   const { toast } = useToast();
@@ -152,12 +169,23 @@ const LiveMap: React.FC = () => {
     };
   }, [canInitMap]);
 
-  function addMarker(ev: ParsedEvent) {
-    if (!mapRef.current) return;
-    const m = new mapboxgl.Marker({ color: "#2563eb" }) // using default accent-blue from mapbox marker, UI colors come from map style
-      .setLngLat([ev.coords.lng, ev.coords.lat]);
+function saveTrackerPosition(tracker: unknown, coords: Coordinates) {
+  try {
+    const key = trackerKeyFromUnknown(tracker);
+    if (!key) return;
+    const map: Record<string, { lat: number; lng: number; receivedAt: number }> =
+      JSON.parse(localStorage.getItem(TRACKER_POS_STORAGE) || "{}");
+    map[key] = { lat: coords.lat, lng: coords.lng, receivedAt: Date.now() };
+    localStorage.setItem(TRACKER_POS_STORAGE, JSON.stringify(map));
+  } catch {}
+}
 
-    const html = `
+function addMarker(ev: ParsedEvent) {
+  if (!mapRef.current) return;
+  const m = new mapboxgl.Marker({ color: "#2563eb" }) // using default accent-blue from mapbox marker, UI colors come from map style
+    .setLngLat([ev.coords.lng, ev.coords.lat]);
+
+  const html = `
       <div style="min-width:220px;max-width:280px;">
         <div style="font-weight:600;margin-bottom:6px;">Tracker & Asset</div>
         ${ev.tracker ? `<div style="font-size:12px;margin-bottom:6px;"><div style='font-weight:600;margin-bottom:2px;'>Tracker</div><pre style="white-space:pre-wrap;word-wrap:break-word;font-size:12px;">${safeStringify(ev.tracker)}</pre></div>` : ""}
@@ -168,17 +196,20 @@ const LiveMap: React.FC = () => {
       </div>
     `;
 
-    const popup = new mapboxgl.Popup({ offset: 16 }).setHTML(html);
-    m.setPopup(popup).addTo(mapRef.current);
-    markersRef.current.push(m);
+  const popup = new mapboxgl.Popup({ offset: 16 }).setHTML(html);
+  m.setPopup(popup).addTo(mapRef.current);
+  markersRef.current.push(m);
 
-    // Center map to the latest point
-    mapRef.current.easeTo({
-      center: [ev.coords.lng, ev.coords.lat],
-      zoom: Math.max(mapRef.current.getZoom(), 4),
-      duration: 800,
-    });
-  }
+  // persist last known tracker position
+  saveTrackerPosition(ev.tracker, ev.coords);
+
+  // Center map to the latest point
+  mapRef.current.easeTo({
+    center: [ev.coords.lng, ev.coords.lat],
+    zoom: Math.max(mapRef.current.getZoom(), 4),
+    duration: 800,
+  });
+}
 
   // Polling for webhook URL (note: may fail due to CORS depending on source)
   useEffect(() => {
@@ -187,36 +218,32 @@ const LiveMap: React.FC = () => {
     let stopped = false;
     const POLL_MS = 5000;
 
-    const poll = async () => {
-      try {
-        const res = await fetch(webhookUrl, { method: "POST" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        const root = data?.Output ?? data; // Support "Output" wrapper
-        const coords = extractCoordinates(root);
-        if (coords) {
-          const { tracker, asset } = extractDetails(root);
-          const ev: ParsedEvent = {
-            coords,
-            tracker,
-            asset,
-            raw: root,
-            receivedAt: Date.now(),
-          };
-          setEvents((prev) => [ev, ...prev].slice(0, 50));
-          addMarker(ev);
-        }
-      } catch (err: any) {
-        toast({
-          title: "Webhook polling failed",
-          description:
-            (err?.message || "Unknown error") +
-            ". If this is due to CORS, paste a sample payload below.",
-        });
-      } finally {
-        if (!stopped) setTimeout(poll, POLL_MS);
-      }
-    };
+const poll = async () => {
+  try {
+    const res = await fetch(webhookUrl, { method: "POST" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const root = data?.Output ?? data; // Support "Output" wrapper
+    const coords = extractCoordinates(root);
+    if (coords) {
+      const { tracker, asset } = extractDetails(root);
+      const ev: ParsedEvent = { coords, tracker, asset, raw: root, receivedAt: Date.now() };
+      setEvents((prev) => [ev, ...prev].slice(0, 50));
+      addMarker(ev);
+      // save last known tracker position
+      saveTrackerPosition(tracker, coords);
+    }
+  } catch (err: any) {
+    toast({
+      title: "Webhook polling failed",
+      description:
+        (err?.message || "Unknown error") +
+        ". If this is due to CORS, paste a sample payload below.",
+    });
+  } finally {
+    if (!stopped) setTimeout(poll, POLL_MS);
+  }
+};
 
     poll();
 
@@ -255,9 +282,11 @@ const LiveMap: React.FC = () => {
           raw: root,
           receivedAt: Date.now(),
         };
-        setEvents((prev) => [ev, ...prev].slice(0, 50));
-        addMarker(ev);
-        toast({ title: "Fetched and plotted latest event" });
+setEvents((prev) => [ev, ...prev].slice(0, 50));
+addMarker(ev);
+// persist last known tracker position
+saveTrackerPosition(tracker, coords);
+toast({ title: "Fetched and plotted latest event" });
       } else {
         toast({ title: "No coordinates found", description: "Response did not contain latitude/longitude" });
       }
@@ -281,9 +310,11 @@ const LiveMap: React.FC = () => {
         raw: root,
         receivedAt: Date.now(),
       };
-      setEvents((prev) => [ev, ...prev].slice(0, 50));
-      addMarker(ev);
-      toast({ title: "Sample plotted" });
+setEvents((prev) => [ev, ...prev].slice(0, 50));
+addMarker(ev);
+// persist last known tracker position
+saveTrackerPosition(tracker, coords);
+toast({ title: "Sample plotted" });
     } catch (e: any) {
       toast({ title: "Invalid JSON", description: e?.message || String(e) });
     }

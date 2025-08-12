@@ -36,6 +36,14 @@ const Index = () => {
             Connect your webhook URL and automatically plot pins by latitude/longitude.
             Click a pin to see Tracker and Asset details.
           </p>
+          <div className="pt-2">
+            <a
+              href="/dashboard"
+              className="inline-flex items-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent"
+            >
+              View Dashboard
+            </a>
+          </div>
         </div>
       </header>
 
