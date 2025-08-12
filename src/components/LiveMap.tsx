@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { processTrackingWebhook } from "@/lib/webhook";
 
 // Types for parsed event
 type Coordinates = { lat: number; lng: number };
@@ -232,15 +233,16 @@ const poll = async () => {
     const res = await fetch(webhookUrl, { method: "POST" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    const root = data?.Output ?? data; // Support "Output" wrapper
-    const coords = extractCoordinates(root);
-    if (coords) {
-      const { tracker, asset } = extractDetails(root);
-      const ev: ParsedEvent = { coords, tracker, asset, raw: root, receivedAt: Date.now() };
-      setEvents((prev) => [ev, ...prev].slice(0, 50));
-      addMarker(ev);
-      // save last known tracker position
-      saveTrackerPosition(tracker, coords);
+const root = data?.Output ?? data; // Support "Output" wrapper
+const coords = extractCoordinates(root);
+if (coords) {
+  const { tracker, asset } = extractDetails(root);
+  const ev: ParsedEvent = { coords, tracker, asset, raw: root, receivedAt: Date.now() };
+  processTrackingWebhook(root);
+  setEvents((prev) => [ev, ...prev].slice(0, 50));
+  addMarker(ev);
+  // save last known tracker position
+  saveTrackerPosition(tracker, coords);
     }
   } catch (err: any) {
     toast({
@@ -279,18 +281,19 @@ const poll = async () => {
     try {
       const res = await fetch(webhookUrl, { method: "POST" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      const root = (data as any)?.Output ?? data;
-      const coords = extractCoordinates(root);
-      if (coords) {
-        const { tracker, asset } = extractDetails(root);
-        const ev: ParsedEvent = {
-          coords,
-          tracker,
-          asset,
-          raw: root,
-          receivedAt: Date.now(),
-        };
+const data = await res.json();
+const root = (data as any)?.Output ?? data;
+const coords = extractCoordinates(root);
+if (coords) {
+  const { tracker, asset } = extractDetails(root);
+  const ev: ParsedEvent = {
+    coords,
+    tracker,
+    asset,
+    raw: root,
+    receivedAt: Date.now(),
+  };
+processTrackingWebhook(root);
 setEvents((prev) => [ev, ...prev].slice(0, 50));
 addMarker(ev);
 // persist last known tracker position
@@ -319,6 +322,7 @@ toast({ title: "Fetched and plotted latest event" });
         raw: root,
         receivedAt: Date.now(),
       };
+processTrackingWebhook(root);
 setEvents((prev) => [ev, ...prev].slice(0, 50));
 addMarker(ev);
 // persist last known tracker position
