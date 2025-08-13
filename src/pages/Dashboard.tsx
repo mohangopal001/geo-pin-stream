@@ -44,7 +44,7 @@ const Dashboard: React.FC = () => {
   const [logOpen, setLogOpen] = React.useState(false);
   const [logRows, setLogRows] = React.useState<TrackerPos[]>([]);
   const [logContext, setLogContext] = React.useState<{ assetName: string; trackerName: string } | null>(null);
-  React.useEffect(() => {
+  const loadRows = React.useCallback(() => {
     const assets: Asset[] = JSON.parse(localStorage.getItem(LS_ASSETS) || "[]");
     const trackers: Tracker[] = JSON.parse(localStorage.getItem(LS_TRACKERS) || "[]");
     const links: AssetTrackerLink[] = JSON.parse(localStorage.getItem(LS_LINKS) || "[]");
@@ -55,13 +55,37 @@ const Dashboard: React.FC = () => {
     const linkedRows: Row[] = assets.map((a) => {
       const link = links.find((l) => l.assetId === a.id);
       const tracker = link ? trackerById.get(link.trackerId) : undefined;
-      // Position key: prefer tracker.id
+      // Position key: prefer tracker.id, fallback to tracker.name
       const pos = tracker ? posMap[tracker.id] || posMap[tracker.name] : undefined;
       return { asset: a, tracker, link, position: pos };
     });
 
     setRows(linkedRows);
   }, []);
+
+  React.useEffect(() => {
+    loadRows();
+
+    const onStorage = (e: StorageEvent) => {
+      if (!e.key) return;
+      if ([LS_ASSETS, LS_TRACKERS, LS_LINKS, LS_TRACKER_POS, LS_TRACKING_LOGS].includes(e.key)) {
+        loadRows();
+      }
+    };
+    window.addEventListener("storage", onStorage);
+
+    const id = window.setInterval(loadRows, 2000);
+    const onFocus = () => loadRows();
+    window.addEventListener("visibilitychange", onFocus);
+    window.addEventListener("focus", onFocus);
+
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("visibilitychange", onFocus);
+      window.removeEventListener("focus", onFocus);
+      window.clearInterval(id);
+    };
+  }, [loadRows]);
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));

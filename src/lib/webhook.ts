@@ -93,6 +93,14 @@ function resolveTrackingFields(p: any) {
 
 export function processTrackingWebhook(payload: TrackingWebhook) {
   try {
+    // If the payload is an array, process each item
+    if (Array.isArray(payload)) {
+      for (const item of payload) {
+        processTrackingWebhook(item);
+      }
+      return;
+    }
+
     const p = payload?.Output ?? payload;
     const asset = resolveAssetFields(p);
     const tracker = resolveTrackerFields(p);

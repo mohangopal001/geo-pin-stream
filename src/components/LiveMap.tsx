@@ -96,6 +96,7 @@ const TRACKER_POS_STORAGE = "dc.trackerPositions";
 const TRACKING_LOGS_STORAGE = "dc.trackingLogs";
 function trackerKeyFromUnknown(tr: any): string | null {
   try {
+    if (typeof tr === "string") return tr.trim();
     if (!tr || typeof tr !== "object") return null;
     const entries = Object.entries(tr as Record<string, any>);
     const lower = new Map(entries.map(([k, v]) => [k.toLowerCase(), v]));
@@ -233,16 +234,23 @@ const poll = async () => {
     const res = await fetch(webhookUrl, { method: "POST" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-const root = data?.Output ?? data; // Support "Output" wrapper
-const coords = extractCoordinates(root);
-if (coords) {
-  const { tracker, asset } = extractDetails(root);
-  const ev: ParsedEvent = { coords, tracker, asset, raw: root, receivedAt: Date.now() };
-  processTrackingWebhook(root);
-  setEvents((prev) => [ev, ...prev].slice(0, 50));
-  addMarker(ev);
-  // save last known tracker position
-  saveTrackerPosition(tracker, coords);
+    const root = (data as any)?.Output ?? data; // Support "Output" wrapper
+    const items = Array.isArray(root) ? root : [root];
+    let plotted = 0;
+    for (const item of items) {
+      const coords = extractCoordinates(item);
+      if (!coords) continue;
+      const { tracker, asset } = extractDetails(item);
+      const ev: ParsedEvent = { coords, tracker, asset, raw: item, receivedAt: Date.now() };
+      processTrackingWebhook(item);
+      setEvents((prev) => [ev, ...prev].slice(0, 50));
+      addMarker(ev);
+      // save last known tracker position
+      saveTrackerPosition(tracker, coords);
+      plotted++;
+    }
+    if (plotted === 0) {
+      // no coordinates present in response
     }
   } catch (err: any) {
     toast({
@@ -273,61 +281,69 @@ if (coords) {
     toast({ title: "Webhook URL saved" });
   };
 
-  const handleFetchOnce = async () => {
-    if (!webhookUrl) {
-      toast({ title: "Enter webhook URL" });
-      return;
-    }
-    try {
-      const res = await fetch(webhookUrl, { method: "POST" });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-const data = await res.json();
-const root = (data as any)?.Output ?? data;
-const coords = extractCoordinates(root);
-if (coords) {
-  const { tracker, asset } = extractDetails(root);
-  const ev: ParsedEvent = {
-    coords,
-    tracker,
-    asset,
-    raw: root,
-    receivedAt: Date.now(),
-  };
-processTrackingWebhook(root);
-setEvents((prev) => [ev, ...prev].slice(0, 50));
-addMarker(ev);
-// persist last known tracker position
-saveTrackerPosition(tracker, coords);
-toast({ title: "Fetched and plotted latest event" });
-      } else {
-        toast({ title: "No coordinates found", description: "Response did not contain latitude/longitude" });
-      }
-    } catch (e: any) {
-      toast({ title: "Fetch failed", description: e?.message || String(e) });
-    }
-  };
-
-  const [sample, setSample] = useState<string>("");
-  const handlePlotSample = () => {
-    try {
-      const parsed = JSON.parse(sample);
-      const root = parsed?.Output ?? parsed;
-      const coords = extractCoordinates(root);
-      if (!coords) throw new Error("No coordinates found in payload");
-      const { tracker, asset } = extractDetails(root);
+const handleFetchOnce = async () => {
+  if (!webhookUrl) {
+    toast({ title: "Enter webhook URL" });
+    return;
+  }
+  try {
+    const res = await fetch(webhookUrl, { method: "POST" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const root = (data as any)?.Output ?? data;
+    const items = Array.isArray(root) ? root : [root];
+    let plotted = 0;
+    for (const item of items) {
+      const coords = extractCoordinates(item);
+      if (!coords) continue;
+      const { tracker, asset } = extractDetails(item);
       const ev: ParsedEvent = {
         coords,
         tracker,
         asset,
-        raw: root,
+        raw: item,
         receivedAt: Date.now(),
       };
-processTrackingWebhook(root);
-setEvents((prev) => [ev, ...prev].slice(0, 50));
-addMarker(ev);
-// persist last known tracker position
-saveTrackerPosition(tracker, coords);
-toast({ title: "Sample plotted" });
+      processTrackingWebhook(item);
+      setEvents((prev) => [ev, ...prev].slice(0, 50));
+      addMarker(ev);
+      // persist last known tracker position
+      saveTrackerPosition(tracker, coords);
+      plotted++;
+    }
+    toast({ title: plotted > 0 ? `Fetched ${plotted} event(s)` : "No coordinates found" });
+  } catch (e: any) {
+    toast({ title: "Fetch failed", description: e?.message || String(e) });
+  }
+};
+
+const [sample, setSample] = useState<string>("");
+  const handlePlotSample = () => {
+    try {
+      const parsed = JSON.parse(sample);
+      const root = parsed?.Output ?? parsed;
+      const items = Array.isArray(root) ? root : [root];
+      let plotted = 0;
+      for (const item of items) {
+        const coords = extractCoordinates(item);
+        if (!coords) continue;
+        const { tracker, asset } = extractDetails(item);
+        const ev: ParsedEvent = {
+          coords,
+          tracker,
+          asset,
+          raw: item,
+          receivedAt: Date.now(),
+        };
+        processTrackingWebhook(item);
+        setEvents((prev) => [ev, ...prev].slice(0, 50));
+        addMarker(ev);
+        // persist last known tracker position
+        saveTrackerPosition(tracker, coords);
+        plotted++;
+      }
+      if (plotted === 0) throw new Error("No coordinates found in payload");
+      toast({ title: `Sample plotted (${plotted})` });
     } catch (e: any) {
       toast({ title: "Invalid JSON", description: e?.message || String(e) });
     }
