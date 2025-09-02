@@ -266,7 +266,7 @@ React.useEffect(() => {
     }
   };
 
-  const handleLink = (e: React.FormEvent) => {
+  const handleLink = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedAssetId || !selectedTrackerId || !linkStatus) {
       toast({ title: "Missing fields", description: "Please select asset, tracker, and status." });
@@ -281,17 +281,56 @@ React.useEffect(() => {
       });
       return;
     }
-    setLinks((prev) => {
-      // replace if same pair exists
-      const others = prev.filter(
-        (l) => !(l.assetId === selectedAssetId && l.trackerId === selectedTrackerId)
-      );
-      return [
-        ...others,
-        { assetId: selectedAssetId, trackerId: selectedTrackerId, status: linkStatus as LinkStatus },
-      ];
-    });
-    toast({ title: "Linked", description: "Asset linked to tracker." });
+
+    // Prepare API payload
+    const apiPayload = {
+      name: "System User", // Default user name as it's not in the form
+      tracker_id: selectedTrackerId,
+      asset_id: selectedAssetId,
+      status: linkStatus
+    };
+
+    try {
+      // Call API endpoint
+      const response = await fetch('http://127.0.0.1:5000/link', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(apiPayload)
+      });
+
+      if (!response.ok) {
+        throw new Error(`API call failed: ${response.status} ${response.statusText}`);
+      }
+
+      const responseData = await response.json();
+      console.log('API response:', responseData);
+
+      // Only update local state if API call succeeds
+      setLinks((prev) => {
+        // replace if same pair exists
+        const others = prev.filter(
+          (l) => !(l.assetId === selectedAssetId && l.trackerId === selectedTrackerId)
+        );
+        return [
+          ...others,
+          { assetId: selectedAssetId, trackerId: selectedTrackerId, status: linkStatus as LinkStatus },
+        ];
+      });
+      
+      toast({ 
+        title: "Linked", 
+        description: "Asset linked to tracker successfully via API." 
+      });
+
+    } catch (error) {
+      console.error('API call failed:', error);
+      toast({ 
+        title: "API Error", 
+        description: `Failed to link via API: ${error instanceof Error ? error.message : 'Unknown error'}` 
+      });
+    }
   };
 
   // helpers
