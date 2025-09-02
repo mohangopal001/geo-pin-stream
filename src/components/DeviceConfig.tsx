@@ -194,7 +194,7 @@ React.useEffect(() => {
     }
   };
 
-  const handleAddAsset = (e: React.FormEvent) => {
+  const handleAddAsset = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!aId || !aName || !aDesc || !aType || !aBase || !aStatus) {
       toast({ title: "Missing fields", description: "Please fill all asset fields." });
@@ -204,24 +204,66 @@ React.useEffect(() => {
       toast({ title: "Duplicate ID", description: "Asset ID already exists." });
       return;
     }
-    setAssets((prev) => [
-      ...prev,
-      {
-        id: aId,
-        name: aName,
-        description: aDesc,
-        type: aType as AssetType,
-        baseLocation: aBase,
-        status: aStatus as AssetStatus,
-      },
-    ]);
-    setAId("");
-    setAName("");
-    setADesc("");
-    setAType("");
-    setABase("");
-    setAStatus("");
-    toast({ title: "Asset saved", description: `${aName} added.` });
+
+    // Prepare API payload
+    const apiPayload = {
+      asset_id: aId,
+      asset_name: aName,
+      asset_description: aDesc,
+      asset_type: aType,
+      base_location: aBase,
+      asset_status: aStatus
+    };
+
+    try {
+      // Call API endpoint
+      const response = await fetch('http://127.0.0.1:5000/asset', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(apiPayload)
+      });
+
+      if (!response.ok) {
+        throw new Error(`API call failed: ${response.status} ${response.statusText}`);
+      }
+
+      const responseData = await response.json();
+      console.log('API response:', responseData);
+
+      // Only add to local state if API call succeeds
+      setAssets((prev) => [
+        ...prev,
+        {
+          id: aId,
+          name: aName,
+          description: aDesc,
+          type: aType as AssetType,
+          baseLocation: aBase,
+          status: aStatus as AssetStatus,
+        },
+      ]);
+      
+      setAId("");
+      setAName("");
+      setADesc("");
+      setAType("");
+      setABase("");
+      setAStatus("");
+      
+      toast({ 
+        title: "Asset saved", 
+        description: `${aName} added successfully to API and local storage.` 
+      });
+
+    } catch (error) {
+      console.error('API call failed:', error);
+      toast({ 
+        title: "API Error", 
+        description: `Failed to save asset to API: ${error instanceof Error ? error.message : 'Unknown error'}` 
+      });
+    }
   };
 
   const handleLink = (e: React.FormEvent) => {
