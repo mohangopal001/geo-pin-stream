@@ -126,7 +126,7 @@ React.useEffect(() => {
   const assetTypeOptions: AssetType[] = ["Movable", "Stationery"]; 
 
   // Handlers
-  const handleAddTracker = (e: React.FormEvent) => {
+  const handleAddTracker = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!tId || !tName || !tModel || tBattery === "" || tStatus === "") {
       toast({ title: "Missing fields", description: "Please fill all tracker fields." });
@@ -141,16 +141,57 @@ React.useEffect(() => {
       toast({ title: "Duplicate ID", description: "Tracker ID already exists." });
       return;
     }
-    setTrackers((prev) => [
-      ...prev,
-      { id: tId, name: tName, model: tModel, batteryLevel: battery, status: tStatus as TrackerStatus },
-    ]);
-    setTId("");
-    setTName("");
-    setTModel("");
-    setTBattery("");
-    setTStatus("");
-    toast({ title: "Tracker saved", description: `${tName} added.` });
+
+    // Prepare API payload
+    const apiPayload = {
+      Device_id: tId,
+      Device_name: tName,
+      Device_model: tModel,
+      battery_level: battery.toString(),
+      Device_status: tStatus
+    };
+
+    try {
+      // Call API endpoint
+      const response = await fetch('http://127.0.0.1:5000/tracker', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(apiPayload)
+      });
+
+      if (!response.ok) {
+        throw new Error(`API call failed: ${response.status} ${response.statusText}`);
+      }
+
+      const responseData = await response.json();
+      console.log('API response:', responseData);
+
+      // Only add to local state if API call succeeds
+      setTrackers((prev) => [
+        ...prev,
+        { id: tId, name: tName, model: tModel, batteryLevel: battery, status: tStatus as TrackerStatus },
+      ]);
+      
+      setTId("");
+      setTName("");
+      setTModel("");
+      setTBattery("");
+      setTStatus("");
+      
+      toast({ 
+        title: "Tracker saved", 
+        description: `${tName} added successfully to API and local storage.` 
+      });
+
+    } catch (error) {
+      console.error('API call failed:', error);
+      toast({ 
+        title: "API Error", 
+        description: `Failed to save tracker to API: ${error instanceof Error ? error.message : 'Unknown error'}` 
+      });
+    }
   };
 
   const handleAddAsset = (e: React.FormEvent) => {
