@@ -1,7 +1,5 @@
 import { useState } from 'react';
 import { X, Loader2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
 interface AddAssetModalProps {
@@ -10,41 +8,50 @@ interface AddAssetModalProps {
 }
 
 export function AddAssetModal({ onClose, onSuccess }: AddAssetModalProps) {
-  const { user } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     asset_id: '',
-    name: '',
-    type: 'vehicle',
+    asset_name: '',
+    asset_type: 'vehicle',
     description: '',
-    status: 'active',
+    latitude: '',
+    longitude: '',
+    radius: '50',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) {
-      toast({
-        title: "Authentication required",
-        description: "Please sign in to add assets.",
-        variant: "destructive"
-      });
-      return;
-    }
 
     setLoading(true);
 
     try {
-      const { error: insertError } = await supabase.from('assets').insert({
+      const apiPayload = {
         asset_id: formData.asset_id,
-        name: formData.name,
-        type: formData.type,
-        description: formData.description || null,
-        status: formData.status,
-        user_id: user.id,
+        asset_name: formData.asset_name,
+        asset_type: formData.asset_type,
+        description: formData.description,
+        registered_location: {
+          latitude: parseFloat(formData.latitude) || 0,
+          longitude: parseFloat(formData.longitude) || 0,
+          radius: parseInt(formData.radius) || 50
+        }
+      };
+
+      const response = await fetch('http://127.0.0.1:5000/assets/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(apiPayload)
       });
 
-      if (insertError) throw insertError;
+      if (!response.ok) {
+        throw new Error(`API call failed: ${response.status} ${response.statusText}`);
+      }
+
+      const responseData = await response.json();
+      console.log('API response:', responseData);
       
       toast({
         title: "Success",
@@ -84,7 +91,7 @@ export function AddAssetModal({ onClose, onSuccess }: AddAssetModalProps) {
               value={formData.asset_id}
               onChange={(e) => setFormData({ ...formData, asset_id: e.target.value })}
               className="w-full px-4 py-2 border rounded-lg bg-background focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              placeholder="TRUCK-001"
+              placeholder="A001"
             />
           </div>
 
@@ -95,10 +102,10 @@ export function AddAssetModal({ onClose, onSuccess }: AddAssetModalProps) {
             <input
               type="text"
               required
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              value={formData.asset_name}
+              onChange={(e) => setFormData({ ...formData, asset_name: e.target.value })}
               className="w-full px-4 py-2 border rounded-lg bg-background focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              placeholder="Delivery Truck #1"
+              placeholder="Warehouse Building"
             />
           </div>
 
@@ -107,14 +114,14 @@ export function AddAssetModal({ onClose, onSuccess }: AddAssetModalProps) {
               Asset Type
             </label>
             <select
-              value={formData.type}
-              onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+              value={formData.asset_type}
+              onChange={(e) => setFormData({ ...formData, asset_type: e.target.value })}
               className="w-full px-4 py-2 border rounded-lg bg-background focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
             >
-              <option value="vehicle">Vehicle</option>
-              <option value="equipment">Equipment</option>
-              <option value="container">Container</option>
-              <option value="building">Building</option>
+              <option value="Infrastructure">Infrastructure</option>
+              <option value="Vehicle">Vehicle</option>
+              <option value="Equipment">Equipment</option>
+              <option value="Container">Container</option>
             </select>
           </div>
 
@@ -123,27 +130,58 @@ export function AddAssetModal({ onClose, onSuccess }: AddAssetModalProps) {
               Description
             </label>
             <textarea
+              required
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               className="w-full px-4 py-2 border rounded-lg bg-background focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              rows={3}
-              placeholder="Additional details about this asset..."
+              rows={2}
+              placeholder="Primary logistics hub"
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Latitude
+              </label>
+              <input
+                type="number"
+                step="any"
+                required
+                value={formData.latitude}
+                onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
+                className="w-full px-4 py-2 border rounded-lg bg-background focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                placeholder="39.7392"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Longitude
+              </label>
+              <input
+                type="number"
+                step="any"
+                required
+                value={formData.longitude}
+                onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
+                className="w-full px-4 py-2 border rounded-lg bg-background focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                placeholder="-75.5398"
+              />
+            </div>
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-1">
-              Status
+              Radius (meters)
             </label>
-            <select
-              value={formData.status}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+            <input
+              type="number"
+              required
+              value={formData.radius}
+              onChange={(e) => setFormData({ ...formData, radius: e.target.value })}
               className="w-full px-4 py-2 border rounded-lg bg-background focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-            >
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-              <option value="maintenance">Maintenance</option>
-            </select>
+              placeholder="50"
+            />
           </div>
 
           <div className="flex space-x-3 pt-4">
