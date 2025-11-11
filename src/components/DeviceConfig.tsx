@@ -205,19 +205,39 @@ React.useEffect(() => {
       return;
     }
 
-    // Prepare API payload
+    // Prepare API payload - parse location if it's in JSON format
+    let registeredLocation = {
+      latitude: 0,
+      longitude: 0,
+      radius: 50
+    };
+    
+    // Try to parse aBase as JSON for registered_location
+    try {
+      const parsed = JSON.parse(aBase);
+      if (parsed.latitude && parsed.longitude) {
+        registeredLocation = {
+          latitude: parsed.latitude,
+          longitude: parsed.longitude,
+          radius: parsed.radius || 50
+        };
+      }
+    } catch {
+      // If not JSON, treat as a description string - you may want to handle this differently
+      console.warn('Base location is not in JSON format, using default coordinates');
+    }
+
     const apiPayload = {
       asset_id: aId,
       asset_name: aName,
-      asset_description: aDesc,
       asset_type: aType,
-      base_location: aBase,
-      asset_status: aStatus
+      description: aDesc,
+      registered_location: registeredLocation
     };
 
     try {
       // Call API endpoint
-      const response = await fetch('http://127.0.0.1:5000/asset', {
+      const response = await fetch('http://127.0.0.1:5000/assets/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
