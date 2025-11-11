@@ -13,6 +13,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { AddAssetModal } from "@/components/AddAssetModal";
+import { useNavigate } from "react-router-dom";
+import { Plus } from "lucide-react";
 
 // Types
 type TrackerStatus = "Active" | "Inactive" | "Missing" | "Maintenance";
@@ -50,6 +54,9 @@ type TabKey = "trackers" | "assets" | "link";
 
 export default function DeviceConfig() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [showAddAssetModal, setShowAddAssetModal] = React.useState(false);
 
 const [trackers, setTrackers] = React.useState<Tracker[]>([]);
 const [assets, setAssets] = React.useState<Asset[]>([]);
@@ -449,8 +456,18 @@ React.useEffect(() => {
         {/* Assets */}
         <TabsContent value="assets" className="mt-4">
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Assets Master</CardTitle>
+              {user ? (
+                <Button onClick={() => setShowAddAssetModal(true)} size="sm">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Asset
+                </Button>
+              ) : (
+                <Button onClick={() => navigate('/auth')} size="sm" variant="outline">
+                  Sign In to Add Assets
+                </Button>
+              )}
             </CardHeader>
             <CardContent>
               <form onSubmit={handleAddAsset} className="grid gap-4 sm:grid-cols-2">
@@ -660,6 +677,16 @@ React.useEffect(() => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {showAddAssetModal && (
+        <AddAssetModal
+          onClose={() => setShowAddAssetModal(false)}
+          onSuccess={() => {
+            setShowAddAssetModal(false);
+            toast({ title: "Success", description: "Asset added successfully!" });
+          }}
+        />
+      )}
     </section>
   );
 }
